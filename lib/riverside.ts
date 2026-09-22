@@ -30,11 +30,6 @@ function tag(xml: string, name: string): string | null {
   return m[1].replace(/^\s*<!\[CDATA\[([\s\S]*?)\]\]>\s*$/, "$1").trim();
 }
 
-function attr(xml: string, name: string, attribute: string): string | null {
-  const m = xml.match(new RegExp(`<${name}\\s[^>]*?${attribute}="([^"]*)"`));
-  return m ? m[1] : null;
-}
-
 function decode(s: string): string {
   return s
     .replace(/&amp;/g, "&")
@@ -45,8 +40,23 @@ function decode(s: string): string {
     .replace(/&apos;/g, "'");
 }
 
+function attr(xml: string, name: string, attribute: string): string | null {
+  const m = xml.match(new RegExp(`<${name}\\s[^>]*?${attribute}="([^"]*)"`));
+  return m ? decode(m[1]) : null;
+}
+
 function stripHtml(s: string): string {
   return decode(s.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+}
+
+function formatDuration(raw: string | null): string | null {
+  if (!raw) return null;
+  const secs = /^\d+$/.test(raw)
+    ? parseInt(raw, 10)
+    : raw.split(":").reduce((acc, part) => acc * 60 + parseInt(part, 10), 0);
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  return h ? `${h}h ${m}m` : `${m} min`;
 }
 
 function themeFor(text: string): Theme {
@@ -77,7 +87,7 @@ export function parseFeed(xml: string): Episode[] {
       date: toIsoDate(tag(item, "pubDate") ?? ""),
       blurb: stripHtml(description).slice(0, 220),
       audioUrl: attr(item, "enclosure", "url"),
-      duration: tag(item, "itunes:duration"),
+      duration: formatDuration(tag(item, "itunes:duration")),
     };
   });
 }
