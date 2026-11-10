@@ -1,14 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { THEMES, formatDuration, type Episode, type Theme } from "@/lib/riverside";
-
-const LABELS: Record<Theme, string> = {
-  "Teach Me Something": "Teach Me Something",
-  "Teach Me Something Hard": "Hard",
-  "Teach Me Something Spicy": "Spicy",
-  "We'll Delete This": "We’ll Delete This",
-};
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { formatDuration, type Episode } from "@/lib/riverside";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -17,13 +10,91 @@ function formatDate(iso: string) {
   return `${parseInt(d, 10)} ${MONTHS[parseInt(m, 10) - 1]} ${y}`;
 }
 
+function clock(secs: number) {
+  const s = Math.floor(secs);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const ss = String(s % 60).padStart(2, "0");
+  return h ? `${h}:${String(m).padStart(2, "0")}:${ss}` : `${m}:${ss}`;
+}
+
+function meta(ep: Episode) {
+  return `EP ${ep.num} · ${formatDate(ep.date)}${ep.seconds ? ` · ${formatDuration(ep.seconds)}` : ""}`;
+}
+
+function Player({ src, seconds, autoPlay }: { src: string; seconds: number | null; autoPlay: boolean }) {
+  const audio = useRef<HTMLAudioElement>(null);
+  const [playing, setPlaying] = useState(false);
+  const [time, setTime] = useState(0);
+  const [total, setTotal] = useState(seconds ?? 0);
+
+  useEffect(() => {
+    if (autoPlay) audio.current?.play();
+  }, [autoPlay]);
+
+  function toggle() {
+    if (!audio.current) return;
+    if (audio.current.paused) audio.current.play();
+    else audio.current.pause();
+  }
+
+  return (
+    <div className="player">
+      <audio
+        ref={audio}
+        src={src}
+        preload="none"
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
+        onLoadedMetadata={(e) => setTotal(e.currentTarget.duration)}
+      />
+      <button type="button" className="toggle" onClick={toggle} aria-label={playing ? "Pause" : "Play"}>
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          {playing ? <path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" /> : <path d="M8 5.5v13l10.5-6.5z" />}
+        </svg>
+      </button>
+      <span className="time">{clock(time)}</span>
+      <input
+        type="range"
+        min={0}
+        max={total || 1}
+        step={1}
+        value={time}
+        aria-label="Seek"
+        style={{ "--progress": `${total ? (time / total) * 100 : 0}%` } as CSSProperties}
+        onChange={(e) => {
+          if (!audio.current) return;
+          audio.current.currentTime = Number(e.target.value);
+          setTime(Number(e.target.value));
+        }}
+      />
+      <span className="time">{clock(total)}</span>
+    </div>
+  );
+}
+
+const ICON_APPLE =
+  "M5.34 0A5.328 5.328 0 000 5.34v13.32A5.328 5.328 0 005.34 24h13.32A5.328 5.328 0 0024 18.66V5.34A5.328 5.328 0 0018.66 0zm6.525 2.568c2.336 0 4.448.902 6.056 2.587 1.224 1.272 1.912 2.619 2.264 4.392.12.59.12 2.2.007 2.864a8.506 8.506 0 01-3.24 5.296c-.608.46-2.096 1.261-2.336 1.261-.088 0-.096-.091-.056-.46.072-.592.144-.715.48-.856.536-.224 1.448-.874 2.008-1.435a7.644 7.644 0 002.008-3.536c.208-.824.184-2.656-.048-3.504-.728-2.696-2.928-4.792-5.624-5.352-.784-.16-2.208-.16-3 0-2.728.56-4.984 2.76-5.672 5.528-.184.752-.184 2.584 0 3.336.456 1.832 1.64 3.512 3.192 4.512.304.2.672.408.824.472.336.144.408.264.472.856.04.36.03.464-.056.464-.056 0-.464-.176-.896-.384l-.04-.03c-2.472-1.216-4.056-3.274-4.632-6.012-.144-.706-.168-2.392-.03-3.04.36-1.74 1.048-3.1 2.192-4.304 1.648-1.737 3.768-2.656 6.128-2.656zm.134 2.81c.409.004.803.04 1.106.106 2.784.62 4.76 3.408 4.376 6.174-.152 1.114-.536 2.03-1.216 2.88-.336.43-1.152 1.15-1.296 1.15-.023 0-.048-.272-.048-.603v-.605l.416-.496c1.568-1.878 1.456-4.502-.256-6.224-.664-.67-1.432-1.064-2.424-1.246-.64-.118-.776-.118-1.448-.008-1.02.167-1.81.562-2.512 1.256-1.72 1.704-1.832 4.342-.264 6.222l.413.496v.608c0 .336-.027.608-.06.608-.03 0-.264-.16-.512-.36l-.034-.011c-.832-.664-1.568-1.842-1.872-2.997-.184-.698-.184-2.024.008-2.72.504-1.878 1.888-3.335 3.808-4.019.41-.145 1.133-.22 1.814-.211zm-.13 2.99c.31 0 .62.06.844.178.488.253.888.745 1.04 1.259.464 1.578-1.208 2.96-2.72 2.254h-.015c-.712-.331-1.096-.956-1.104-1.77 0-.733.408-1.371 1.112-1.745.224-.117.534-.176.844-.176zm-.011 4.728c.988-.004 1.706.349 1.97.97.198.464.124 1.932-.218 4.302-.232 1.656-.36 2.074-.68 2.356-.44.39-1.064.498-1.656.288h-.003c-.716-.257-.87-.605-1.164-2.644-.341-2.37-.416-3.838-.218-4.302.262-.616.974-.966 1.97-.97z";
+const ICON_SPOTIFY =
+  "M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z";
+
 export default function Episodes({ episodes }: { episodes: Episode[] }) {
   const sorted = [...episodes].sort((a, b) => b.date.localeCompare(a.date));
   const [current, setCurrent] = useState<Episode>(sorted[0]);
   const [autoPlay, setAutoPlay] = useState(false);
-  const [activeTheme, setActiveTheme] = useState<Theme | "all">("all");
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState<Episode | null>(null);
+  const dialog = useRef<HTMLDialogElement>(null);
 
-  const list = sorted.filter((ep) => activeTheme === "all" || ep.theme === activeTheme);
+  useEffect(() => {
+    if (open) dialog.current?.showModal();
+  }, [open]);
+
+  const q = query.trim().toLowerCase();
+  const list = sorted.filter(
+    (ep) => !q || `${ep.num} ${ep.title} ${ep.guest ?? ""} ${ep.description}`.toLowerCase().includes(q),
+  );
   const isLatest = current.num === sorted[0].num;
 
   function play(ep: Episode) {
@@ -35,68 +106,51 @@ export default function Episodes({ episodes }: { episodes: Episode[] }) {
   return (
     <>
       <section className="latest" id="latest">
-        <div className="latest-title">
-          <span className="eyebrow">{isLatest ? "Latest episode" : "Now playing"}</span>
-          <h2>{current.title}</h2>
-          {current.guest && <p className="guest">with {current.guest}</p>}
-        </div>
-        <div className="latest-detail">
-          {current.blurb && <p className="blurb">{current.blurb}</p>}
-          <span className="pill">{current.theme}</span>
-          <p className="meta">
-            EP {current.num} &middot; {formatDate(current.date)}
-            {current.seconds ? ` · ${formatDuration(current.seconds)}` : ""}
-          </p>
-          {current.audioUrl && (
-            <audio key={current.num} controls preload="none" autoPlay={autoPlay} src={current.audioUrl} />
-          )}
-        </div>
+        <span className="eyebrow">{isLatest ? "Latest episode" : "Now playing"}</span>
+        <h2>{current.title}</h2>
+        {current.guest && <p className="guest">with {current.guest}</p>}
+        <p className="meta">{meta(current)}</p>
+        {current.audioUrl && (
+          <Player key={current.num} src={current.audioUrl} seconds={current.seconds} autoPlay={autoPlay} />
+        )}
       </section>
 
       <section className="find" id="episodes">
         <div className="find-inner">
           <div className="find-head">
-            <h2>Find your conversation</h2>
+            <h2>Conversations</h2>
             <div className="listen">
               <a href="https://podcasts.apple.com/us/podcast/spacious/id6833112785" target="_blank" rel="noopener noreferrer">
-                <svg className="apple" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M5.34 0A5.328 5.328 0 000 5.34v13.32A5.328 5.328 0 005.34 24h13.32A5.328 5.328 0 0024 18.66V5.34A5.328 5.328 0 0018.66 0zm6.525 2.568c2.336 0 4.448.902 6.056 2.587 1.224 1.272 1.912 2.619 2.264 4.392.12.59.12 2.2.007 2.864a8.506 8.506 0 01-3.24 5.296c-.608.46-2.096 1.261-2.336 1.261-.088 0-.096-.091-.056-.46.072-.592.144-.715.48-.856.536-.224 1.448-.874 2.008-1.435a7.644 7.644 0 002.008-3.536c.208-.824.184-2.656-.048-3.504-.728-2.696-2.928-4.792-5.624-5.352-.784-.16-2.208-.16-3 0-2.728.56-4.984 2.760-5.672 5.528-.184.752-.184 2.584 0 3.336.456 1.832 1.640 3.512 3.192 4.512.304.2.672.408.824.472.336.144.408.264.472.856.04.36.03.464-.056.464-.056 0-.464-.176-.896-.384l-.04-.03c-2.472-1.216-4.056-3.274-4.632-6.012-.144-.706-.168-2.392-.03-3.04.36-1.74 1.048-3.1 2.192-4.304 1.648-1.737 3.768-2.656 6.128-2.656zm.134 2.81c.409.004.803.04 1.106.106 2.784.62 4.76 3.408 4.376 6.174-.152 1.114-.536 2.030-1.216 2.880-.336.43-1.152 1.15-1.296 1.15-.023 0-.048-.272-.048-.603v-.605l.416-.496c1.568-1.878 1.456-4.502-.256-6.224-.664-.67-1.432-1.064-2.424-1.246-.64-.118-.776-.118-1.448-.008-1.020.167-1.81.562-2.512 1.256-1.72 1.704-1.832 4.342-.264 6.222l.413.496v.608c0 .336-.027.608-.06.608-.03 0-.264-.16-.512-.36l-.034-.011c-.832-.664-1.568-1.842-1.872-2.997-.184-.698-.184-2.024.008-2.72.504-1.878 1.888-3.335 3.808-4.019.41-.145 1.133-.22 1.814-.211zm-.13 2.99c.31 0 .62.06.844.178.488.253.888.745 1.04 1.259.464 1.578-1.208 2.96-2.72 2.254h-.015c-.712-.331-1.096-.956-1.104-1.77 0-.733.408-1.371 1.112-1.745.224-.117.534-.176.844-.176zm-.011 4.728c.988-.004 1.706.349 1.97.97.198.464.124 1.932-.218 4.302-.232 1.656-.36 2.074-.68 2.356-.44.39-1.064.498-1.656.288h-.003c-.716-.257-.87-.605-1.164-2.644-.341-2.37-.416-3.838-.218-4.302.262-.616.974-.966 1.970-.97z" />
-                </svg>
+                <svg className="apple" viewBox="0 0 24 24" aria-hidden="true"><path d={ICON_APPLE} /></svg>
                 Apple Podcasts
               </a>
               <span className="soon" aria-disabled="true">
-                <svg className="spotify" viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.840c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.260-1.26 11.28-1.02 15.721 1.621.539.3.719 1.020.419 1.560-.299.421-1.020.599-1.559.3z" />
-                </svg>
+                <svg className="spotify" viewBox="0 0 24 24" aria-hidden="true"><path d={ICON_SPOTIFY} /></svg>
                 Spotify <em>soon</em>
               </span>
             </div>
           </div>
-          <div className="filters">
-            <button type="button" className={activeTheme === "all" ? "active" : ""} onClick={() => setActiveTheme("all")}>
-              All
-            </button>
-            {THEMES.map((theme) => (
-              <button
-                key={theme}
-                type="button"
-                className={activeTheme === theme ? "active" : ""}
-                onClick={() => setActiveTheme(theme)}
-              >
-                {LABELS[theme]}
-              </button>
-            ))}
-          </div>
+          <input
+            type="search"
+            className="search"
+            placeholder="Search by guest, title or topic"
+            aria-label="Search conversations"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
           {list.length === 0 ? (
-            <p className="empty">nothing in this theme yet &mdash; maybe that&rsquo;s yours to start.</p>
+            <p className="empty">Nothing matches that yet.</p>
           ) : (
             <ul className="ep-list">
               {list.map((ep) => (
-                <li key={ep.num}>
+                <li key={ep.num} onClick={() => ep.descriptionHtml && setOpen(ep)}>
                   <button
                     type="button"
                     className="play"
-                    onClick={() => play(ep)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      play(ep);
+                    }}
                     disabled={!ep.audioUrl}
                     aria-label={`Play ${ep.title}`}
                   >
@@ -105,15 +159,48 @@ export default function Episodes({ episodes }: { episodes: Episode[] }) {
                     </svg>
                   </button>
                   <span className="num">{ep.num}</span>
-                  <span className="title">{ep.title}</span>
-                  <span className="guest">{ep.guest}</span>
-                  <span className="length">{ep.seconds ? `${Math.round(ep.seconds / 60)} min` : ""}</span>
+                  <span className="title">
+                    <button type="button" onClick={() => setOpen(ep)} disabled={!ep.descriptionHtml}>
+                      {ep.title}
+                    </button>
+                  </span>
+                  <span className="guest">
+                    {ep.guest}
+                    {ep.contact && (
+                      <a
+                        className="contact"
+                        href={ep.contact.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {ep.contact.label}
+                      </a>
+                    )}
+                  </span>
+                  <span className="length">{ep.seconds ? formatDuration(ep.seconds) : ""}</span>
                 </li>
               ))}
             </ul>
           )}
         </div>
       </section>
+
+      <dialog ref={dialog} className="notes" onClose={() => setOpen(null)} onClick={(e) => e.target === e.currentTarget && dialog.current?.close()}>
+        {open && (
+          <div className="notes-inner">
+            <button type="button" className="close" onClick={() => dialog.current?.close()} aria-label="Close">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            </button>
+            <h3>{open.title}</h3>
+            {open.guest && <p className="guest">with {open.guest}</p>}
+            <p className="meta">{meta(open)}</p>
+            <div className="notes-body" dangerouslySetInnerHTML={{ __html: open.descriptionHtml }} />
+          </div>
+        )}
+      </dialog>
     </>
   );
 }

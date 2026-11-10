@@ -5,25 +5,29 @@ export const THEMES = [
   "We'll Delete This",
 ] as const;
 
-export type Theme = (typeof THEMES)[number];
-
 export type Episode = {
   num: string;
   title: string;
   guest: string | null;
-  theme: Theme;
   date: string;
-  blurb: string;
+  description: string;
+  descriptionHtml: string;
+  contact: { label: string; url: string } | null;
   audioUrl: string | null;
   seconds: number | null;
 };
 
-const PLACEHOLDERS: Episode[] = [
-  { num: "0001", title: "Coming soon", guest: null, theme: "Teach Me Something", date: "2026-09-04", blurb: "", audioUrl: null, seconds: null },
-  { num: "0002", title: "Coming soon", guest: null, theme: "Teach Me Something Hard", date: "2026-09-18", blurb: "", audioUrl: null, seconds: null },
-  { num: "0003", title: "Coming soon", guest: null, theme: "Teach Me Something Spicy", date: "2026-10-02", blurb: "", audioUrl: null, seconds: null },
-  { num: "0004", title: "Coming soon", guest: null, theme: "We'll Delete This", date: "2026-10-16", blurb: "", audioUrl: null, seconds: null },
-];
+const PLACEHOLDERS: Episode[] = ["0001", "0002", "0003", "0004"].map((num, i) => ({
+  num,
+  title: "Coming soon",
+  guest: null,
+  date: `2026-09-${String(4 + i * 7).padStart(2, "0")}`,
+  description: "",
+  descriptionHtml: "",
+  contact: null,
+  audioUrl: null,
+  seconds: null,
+}));
 
 function tag(xml: string, name: string): string | null {
   const m = xml.match(new RegExp(`<${name}(?:\\s[^>]*)?>([\\s\\S]*?)</${name}>`));
@@ -46,9 +50,33 @@ function attr(xml: string, name: string, attribute: string): string | null {
   return m ? decode(m[1]) : null;
 }
 
-// itunes:summary arrives entity-escaped, so decode before stripping tags.
-function stripHtml(s: string): string {
-  return decode(decode(s).replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+function stripHtml(html: string): string {
+  return decode(html.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+}
+
+const ALLOWED_TAGS = new Set(["p", "br", "ul", "ol", "li", "b", "strong", "em", "i"]);
+
+// Show notes are rendered as HTML in the episode modal, so keep only basic
+// formatting tags and http(s) links, and drop every other tag and attribute.
+function sanitizeHtml(html: string): string {
+  return html
+    .replace(/<(script|style|iframe)[\s\S]*?<\/\1>/gi, "")
+    .replace(/<(\/?)([a-z0-9]+)([^>]*)>/gi, (_, slash: string, name: string, rest: string) => {
+      const t = name.toLowerCase();
+      if (t === "a") {
+        if (slash) return "</a>";
+        const href = rest.match(/href="(https?:\/\/[^"]*)"/i)?.[1];
+        return href ? `<a href="${href}" target="_blank" rel="noopener noreferrer">` : "<a>";
+      }
+      return ALLOWED_TAGS.has(t) ? `<${slash}${t}>` : "";
+    });
+}
+
+// Show notes list the guest's links under a "Find Erica:" heading; take the first one.
+function findContact(html: string): { label: string; url: string } | null {
+  const list = html.match(/Find [^<:]*:\s*<\/[^>]+>[\s\S]*?<ul>([\s\S]*?)<\/ul>/i)?.[1];
+  const item = list?.match(/<li>([^<]*?):?\s*<a [^>]*href="(https?:\/\/[^"]*)"/i);
+  return item ? { label: decode(item[1]).trim() || "Website", url: item[2] } : null;
 }
 
 function toSeconds(raw: string | null): number | null {
@@ -61,21 +89,13 @@ function toSeconds(raw: string | null): number | null {
 export function formatDuration(secs: number): string {
   const h = Math.floor(secs / 3600);
   const m = Math.floor((secs % 3600) / 60);
-  return h ? `${h}h ${m}m` : `${m} min`;
+  return h ? `${h}h ${m}m` : `${m}m`;
 }
 
 // Riverside titles look like "Spacious 0001 with Erica Bonham: A Joyful Disruption".
 function splitTitle(raw: string): { title: string; guest: string | null } {
   const m = raw.match(/^Spacious\s+\d+\s+with\s+(.+?):\s*(.+)$/i);
   return m ? { title: m[2].trim(), guest: m[1].trim() } : { title: raw, guest: null };
-}
-
-function themeFor(text: string): Theme {
-  const t = text.toLowerCase();
-  if (t.includes("delete")) return "We'll Delete This";
-  if (t.includes("spicy")) return "Teach Me Something Spicy";
-  if (t.includes("hard")) return "Teach Me Something Hard";
-  return "Teach Me Something";
 }
 
 function toIsoDate(pubDate: string): string {
@@ -86,17 +106,16 @@ export function parseFeed(xml: string): Episode[] {
   const items = xml.match(/<item(?:\s[^>]*)?>[\s\S]*?<\/item>/g) ?? [];
   const total = items.length;
   return items.map((item, i) => {
-    const rawTitle = decode(tag(item, "title") ?? "Untitled");
-    const description = stripHtml(tag(item, "itunes:summary") ?? tag(item, "description") ?? "");
-    const keywords = tag(item, "itunes:keywords") ?? "";
+    // <description> is raw HTML in CDATA; itunes:summary is the same HTML entity-escaped.
+    const html = tag(item, "description") ?? decode(tag(item, "itunes:summary") ?? "");
     const episodeNumber = tag(item, "itunes:episode");
-    const num = String(episodeNumber ?? total - i).padStart(4, "0");
     return {
-      num,
-      ...splitTitle(rawTitle),
-      theme: themeFor(`${rawTitle} ${keywords}`),
+      num: String(episodeNumber ?? total - i).padStart(4, "0"),
+      ...splitTitle(decode(tag(item, "title") ?? "Untitled")),
       date: toIsoDate(tag(item, "pubDate") ?? ""),
-      blurb: description.length > 220 ? description.slice(0, 220).replace(/\s+\S*$/, "") + "…" : description,
+      description: stripHtml(html),
+      descriptionHtml: sanitizeHtml(html),
+      contact: findContact(html),
       audioUrl: attr(item, "enclosure", "url"),
       seconds: toSeconds(tag(item, "itunes:duration")),
     };
