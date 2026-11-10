@@ -1,10 +1,23 @@
-import Image from "next/image";
+import { getImageProps } from "next/image";
 import { getEpisodes } from "@/lib/riverside";
 import Episodes from "./Episodes";
 import RequestConversation from "./RequestConversation";
 
 export default async function Home() {
   const episodes = await getEpisodes();
+
+  const common = {
+    alt: "Spacious — handwritten in blue ink over a clear sky, with a line curving down to a lone oak in a wide meadow",
+    sizes: "100vw",
+    loading: "eager",
+    fetchPriority: "high",
+  } as const;
+  const {
+    props: { srcSet: desktop },
+  } = getImageProps({ ...common, src: "/spacious-hero.png", width: 1536, height: 1024 });
+  const {
+    props: { srcSet: mobile, ...hero },
+  } = getImageProps({ ...common, src: "/spacious-hero-mobile.png", width: 718, height: 1540 });
 
   return (
     <>
@@ -19,14 +32,11 @@ export default async function Home() {
       </header>
 
       <div className="hero" id="top">
-        <Image
-          src="/spacious-hero.png"
-          width={1536}
-          height={1024}
-          priority
-          sizes="100vw"
-          alt="Spacious — handwritten in blue ink over a clear sky, with a line curving down to a lone oak in a wide meadow"
-        />
+        <picture>
+          <source media="(min-width: 721px)" srcSet={desktop} />
+          <source srcSet={mobile} />
+          <img {...hero} alt={common.alt} />
+        </picture>
       </div>
 
       <Episodes episodes={episodes} />
