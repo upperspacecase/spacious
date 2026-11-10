@@ -11,8 +11,6 @@ export default async function Home() {
       <header>
         <a className="logo" href="#top">Spacious</a>
         <nav>
-          <a className="nav-link" href="#episodes">Episodes</a>
-          <a className="nav-link" href="#about">About</a>
           {/* <a href="#pitch">bring a conversation</a> */}
           <a
             className="listen-now"
@@ -34,12 +32,12 @@ export default async function Home() {
           sizes="100vw"
           alt="Spacious — handwritten in cream over a dusk sky, with a line curving down to a lone oak in a wide field"
         />
-        <div className="hero-copy" id="about">
+        <div className="hero-copy">
           <p className="tagline">
             Wide ranging conversations about the human experience, how to navigate the world we live in
             and the one we are building.
           </p>
-          <a className="cta" href="#latest">Listen to the latest</a>
+          <a className="cta" href="#episodes">Listen to the latest</a>
         </div>
       </div>
 

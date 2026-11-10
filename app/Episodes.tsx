@@ -22,15 +22,11 @@ function meta(ep: Episode) {
   return `EP ${ep.num} · ${formatDate(ep.date)}${ep.seconds ? ` · ${formatDuration(ep.seconds)}` : ""}`;
 }
 
-function Player({ src, seconds, autoPlay }: { src: string; seconds: number | null; autoPlay: boolean }) {
+function Player({ src, seconds }: { src: string; seconds: number | null }) {
   const audio = useRef<HTMLAudioElement>(null);
   const [playing, setPlaying] = useState(false);
   const [time, setTime] = useState(0);
   const [total, setTotal] = useState(seconds ?? 0);
-
-  useEffect(() => {
-    if (autoPlay) audio.current?.play();
-  }, [autoPlay]);
 
   function toggle() {
     if (!audio.current) return;
@@ -39,12 +35,15 @@ function Player({ src, seconds, autoPlay }: { src: string; seconds: number | nul
   }
 
   return (
-    <div className="player">
+    <div className="player" onClick={(e) => e.stopPropagation()}>
       <audio
         ref={audio}
         src={src}
         preload="none"
-        onPlay={() => setPlaying(true)}
+        onPlay={(e) => {
+          setPlaying(true);
+          document.querySelectorAll("audio").forEach((a) => a !== e.currentTarget && a.pause());
+        }}
         onPause={() => setPlaying(false)}
         onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
         onLoadedMetadata={(e) => setTotal(e.currentTarget.duration)}
@@ -81,8 +80,7 @@ const ICON_SPOTIFY =
 
 export default function Episodes({ episodes }: { episodes: Episode[] }) {
   const sorted = [...episodes].sort((a, b) => b.date.localeCompare(a.date));
-  const [current, setCurrent] = useState<Episode>(sorted[0]);
-  const [autoPlay, setAutoPlay] = useState(false);
+  const latest = sorted[0];
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState<Episode | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -95,24 +93,13 @@ export default function Episodes({ episodes }: { episodes: Episode[] }) {
   const list = sorted.filter(
     (ep) => !q || `${ep.num} ${ep.title} ${ep.guest ?? ""} ${ep.description}`.toLowerCase().includes(q),
   );
-  const isLatest = current.num === sorted[0].num;
-
-  function play(ep: Episode) {
-    setCurrent(ep);
-    setAutoPlay(true);
-    document.getElementById("latest")?.scrollIntoView({ behavior: "smooth" });
-  }
-
   return (
     <>
       <section className="latest" id="latest">
-        <span className="eyebrow">{isLatest ? "Latest episode" : "Now playing"}</span>
-        <h2>{current.title}</h2>
-        {current.guest && <p className="guest">with {current.guest}</p>}
-        <p className="meta">{meta(current)}</p>
-        {current.audioUrl && (
-          <Player key={current.num} src={current.audioUrl} seconds={current.seconds} autoPlay={autoPlay} />
-        )}
+        <span className="eyebrow">Latest episode</span>
+        <h2>{latest.title}</h2>
+        {latest.guest && <p className="guest">with {latest.guest}</p>}
+        <p className="meta">{meta(latest)}</p>
       </section>
 
       <section className="find" id="episodes">
@@ -144,20 +131,6 @@ export default function Episodes({ episodes }: { episodes: Episode[] }) {
             <ul className="ep-list">
               {list.map((ep) => (
                 <li key={ep.num} onClick={() => ep.descriptionHtml && setOpen(ep)}>
-                  <button
-                    type="button"
-                    className="play"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      play(ep);
-                    }}
-                    disabled={!ep.audioUrl}
-                    aria-label={`Play ${ep.title}`}
-                  >
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M9 7.5v9l7.5-4.5z" />
-                    </svg>
-                  </button>
                   <span className="num">{ep.num}</span>
                   <span className="title">
                     <button type="button" onClick={() => setOpen(ep)} disabled={!ep.descriptionHtml}>
@@ -179,6 +152,7 @@ export default function Episodes({ episodes }: { episodes: Episode[] }) {
                     )}
                   </span>
                   <span className="length">{ep.seconds ? formatDuration(ep.seconds) : ""}</span>
+                  {ep.audioUrl && <Player src={ep.audioUrl} seconds={ep.seconds} />}
                 </li>
               ))}
             </ul>
