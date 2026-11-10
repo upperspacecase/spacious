@@ -1,10 +1,10 @@
 :root {
   --paper: #fbfbf9;
   --ink: #1e2ba8;
-  --ink-soft: rgba(30, 43, 168, 0.55);
-  --ink-faint: rgba(30, 43, 168, 0.14);
-  --text: #23232a;
-  --text-soft: #55555e;
+  --ink-soft: rgba(30, 43, 168, 0.8);
+  --ink-faint: rgba(30, 43, 168, 0.2);
+  --text: #1a1a20;
+  --text-soft: #3f3f47;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -86,8 +86,10 @@ nav a:hover { color: var(--ink); }
   margin-top: 1rem;
   font-size: clamp(1.15rem, 3.4vw, 1.5rem);
   font-style: italic;
-  color: var(--text-soft);
+  font-weight: 400;
+  color: var(--text);
   max-width: 26em;
+  text-shadow: 0 0 6px rgba(251, 251, 249, 0.9), 0 0 18px rgba(251, 251, 249, 0.8);
 }
 
 .hero .host {
@@ -141,6 +143,43 @@ section {
 
 /* ---------- Episodes ---------- */
 .episodes { max-width: 62rem; }
+
+.episodes-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.episodes-head .kicker { margin-bottom: 0; }
+
+.listen { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+
+.listen a,
+.listen .soon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.5rem 1rem 0.5rem 0.6rem;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--ink-faint);
+  color: var(--text);
+  font-size: 1rem;
+  font-weight: 400;
+  transition: transform 0.15s ease;
+}
+
+.listen a:hover { transform: scale(1.03); }
+
+.listen svg { width: 1.6rem; height: 1.6rem; flex: none; }
+.listen .apple { fill: #a24fd8; }
+.listen .spotify { fill: #1ed760; }
+
+.listen .soon { color: var(--text-soft); cursor: default; }
+.listen .soon em { font-size: 0.9rem; }
 
 .filters {
   display: flex;
