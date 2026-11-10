@@ -1,17 +1,7 @@
-export const THEMES = [
-  "Teach Me Something",
-  "Teach Me Something Hard",
-  "Teach Me Something Spicy",
-  "We'll Delete This",
-] as const;
-
-export type Theme = (typeof THEMES)[number];
-
 export type Episode = {
   num: string;
   title: string;
   guest: string | null;
-  theme: Theme;
   date: string;
   description: string;
   descriptionHtml: string;
@@ -24,7 +14,6 @@ const PLACEHOLDERS: Episode[] = ["0001", "0002", "0003", "0004"].map((num, i) =>
   num,
   title: "Coming soon",
   guest: null,
-  theme: THEMES[i],
   date: `2026-09-${String(4 + i * 7).padStart(2, "0")}`,
   description: "",
   descriptionHtml: "",
@@ -102,14 +91,6 @@ function splitTitle(raw: string): { title: string; guest: string | null } {
   return m ? { title: m[2].trim(), guest: m[1].trim() } : { title: raw, guest: null };
 }
 
-function themeFor(text: string): Theme {
-  const t = text.toLowerCase();
-  if (t.includes("delete")) return "We'll Delete This";
-  if (t.includes("spicy")) return "Teach Me Something Spicy";
-  if (t.includes("hard")) return "Teach Me Something Hard";
-  return "Teach Me Something";
-}
-
 function toIsoDate(pubDate: string): string {
   return new Date(pubDate).toISOString().slice(0, 10);
 }
@@ -121,11 +102,9 @@ export function parseFeed(xml: string): Episode[] {
     // <description> is raw HTML in CDATA; itunes:summary is the same HTML entity-escaped.
     const html = tag(item, "description") ?? decode(tag(item, "itunes:summary") ?? "");
     const episodeNumber = tag(item, "itunes:episode");
-    const rawTitle = decode(tag(item, "title") ?? "Untitled");
     return {
       num: String(episodeNumber ?? total - i).padStart(4, "0"),
-      ...splitTitle(rawTitle),
-      theme: themeFor(`${rawTitle} ${tag(item, "itunes:keywords") ?? ""}`),
+      ...splitTitle(decode(tag(item, "title") ?? "Untitled")),
       date: toIsoDate(tag(item, "pubDate") ?? ""),
       description: stripHtml(html),
       descriptionHtml: sanitizeHtml(html),
