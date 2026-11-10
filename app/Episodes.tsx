@@ -1,7 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { formatDuration, type Episode } from "@/lib/riverside";
+import { THEMES, formatDuration, type Episode, type Theme } from "@/lib/riverside";
+
+const LABELS: Record<Theme, string> = {
+  "Teach Me Something": "Teach Me Something",
+  "Teach Me Something Hard": "Hard",
+  "Teach Me Something Spicy": "Spicy",
+  "We'll Delete This": "We’ll Delete This",
+};
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -82,6 +89,7 @@ export default function Episodes({ episodes }: { episodes: Episode[] }) {
   const sorted = [...episodes].sort((a, b) => b.date.localeCompare(a.date));
   const latest = sorted[0];
   const [query, setQuery] = useState("");
+  const [theme, setTheme] = useState<Theme | "all">("all");
   const [open, setOpen] = useState<Episode | null>(null);
   const dialog = useRef<HTMLDialogElement>(null);
 
@@ -91,6 +99,7 @@ export default function Episodes({ episodes }: { episodes: Episode[] }) {
 
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   const list = sorted.filter((ep) => {
+    if (theme !== "all" && ep.theme !== theme) return false;
     const text = `${ep.num} ${ep.title} ${ep.guest ?? ""} ${ep.description}`.toLowerCase();
     return words.every((w) => text.includes(w));
   });
@@ -118,14 +127,27 @@ export default function Episodes({ episodes }: { episodes: Episode[] }) {
               </a>
             </div>
           </div>
-          <input
-            type="search"
-            className="search"
-            placeholder="Search by guest, title or topic"
-            aria-label="Search conversations"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
+          <div className="search-row">
+            <input
+              type="search"
+              className="search"
+              placeholder="Search by guest, title or topic"
+              aria-label="Search conversations"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            <select
+              className="theme-filter"
+              aria-label="Filter by theme"
+              value={theme}
+              onChange={(e) => setTheme(e.target.value as Theme | "all")}
+            >
+              <option value="all">All themes</option>
+              {THEMES.map((t) => (
+                <option key={t} value={t}>{LABELS[t]}</option>
+              ))}
+            </select>
+          </div>
           {list.length === 0 ? (
             <p className="empty">Nothing matches that yet.</p>
           ) : (
