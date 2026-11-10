@@ -110,6 +110,19 @@ export default function Episodes({ episodes }: { episodes: Episode[] }) {
         <h2>{latest.title}</h2>
         {latest.guest && <p className="guest">with {latest.guest}</p>}
         <p className="meta">{meta(latest)}</p>
+        <button
+          type="button"
+          className="to-episode"
+          onClick={() => {
+            setQuery("");
+            setTheme("all");
+            requestAnimationFrame(() =>
+              document.getElementById(`ep-${latest.num}`)?.scrollIntoView({ behavior: "smooth", block: "center" }),
+            );
+          }}
+        >
+          Listen
+        </button>
       </section>
 
       <section className="find" id="episodes">
@@ -153,7 +166,7 @@ export default function Episodes({ episodes }: { episodes: Episode[] }) {
           ) : (
             <ul className="ep-list">
               {list.map((ep) => (
-                <li key={ep.num} onClick={() => ep.descriptionHtml && setOpen(ep)}>
+                <li key={ep.num} id={`ep-${ep.num}`} onClick={() => ep.descriptionHtml && setOpen(ep)}>
                   <span className="num">{ep.num}</span>
                   <span className="title">
                     <button type="button" onClick={() => setOpen(ep)} disabled={!ep.descriptionHtml}>

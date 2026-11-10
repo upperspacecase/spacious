@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { getEpisodes } from "@/lib/riverside";
 import Episodes from "./Episodes";
-// import PitchForm from "./PitchForm";
+import RequestConversation from "./RequestConversation";
 
 export default async function Home() {
   const episodes = await getEpisodes();
@@ -11,13 +11,8 @@ export default async function Home() {
       <header>
         <a className="logo" href="#top">Spacious</a>
         <nav>
-          {/* <a href="#pitch">bring a conversation</a> */}
-          <a
-            className="listen-now"
-            href="https://podcasts.apple.com/us/podcast/spacious/id6833112785"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+          <RequestConversation />
+          <a className="listen-now" href="#episodes">
             Listen now
           </a>
         </nav>
@@ -42,21 +37,6 @@ export default async function Home() {
       </div>
 
       <Episodes episodes={episodes} />
-
-      {/*
-      <section className="pitch" id="pitch">
-        <span className="kicker">bring a conversation</span>
-        <h2>
-          What needs <span className="ink">room?</span>
-        </h2>
-        <p className="lede">
-          Something you know. Something hard. Something you&rsquo;d only say with an extra layer of
-          permission. It doesn&rsquo;t need to be polished &mdash; and you don&rsquo;t need to know
-          which room it belongs in. That can come afterwards.
-        </p>
-        <PitchForm />
-      </section>
-      */}
 
       <footer>
         <svg className="squiggle" width="170" height="30" viewBox="0 0 170 30" aria-hidden="true">

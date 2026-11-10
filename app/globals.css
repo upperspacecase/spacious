@@ -5,7 +5,7 @@
   --accent: #9aa6ff;
   --text: #14163f;
   --text-soft: #4a4c6e;
-  /* used by the commented-out pitch form */
+  /* used by the request-a-conversation form */
   --ink: var(--blue);
   --ink-faint: rgba(154, 166, 255, 0.45);
 }
@@ -56,6 +56,36 @@ nav { display: flex; align-items: center; gap: 2.5rem; }
 }
 
 .listen-now:hover { background: rgba(154, 166, 255, 0.2); }
+
+.request {
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font-family: var(--font-newsreader), serif;
+  font-size: 1.1rem;
+  cursor: pointer;
+}
+
+.request:hover { color: var(--accent); }
+
+.to-episode {
+  margin-top: 1.75rem;
+  padding: 0.7rem 2.6rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--blue);
+  color: var(--paper-text);
+  font-family: var(--font-newsreader), serif;
+  font-size: 1.2rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.to-episode:hover { transform: scale(1.03); }
+
+.ep-list li, #episodes { scroll-margin-top: 5rem; }
 
 /* ---------- Hero ---------- */
 .hero {
@@ -403,22 +433,8 @@ nav { display: flex; align-items: center; gap: 2.5rem; }
   padding: 1.5rem 0;
 }
 
-/* ---------- Pitch (commented out in page.tsx) ---------- */
-.pitch h2 {
-  font-weight: 300;
-  font-size: clamp(2rem, 6.5vw, 3rem);
-  line-height: 1.15;
-}
-
-.pitch h2 .ink { color: var(--ink); }
-
-.pitch .lede {
-  margin-top: 1.5rem;
-  font-size: 1.2rem;
-  line-height: 1.6;
-  color: var(--text-soft);
-  margin-bottom: 3rem;
-}
+/* ---------- Request a conversation (modal form) ---------- */
+.request-form { margin-top: 1.75rem; }
 
 form { display: grid; gap: 1.75rem; }
 
@@ -488,7 +504,10 @@ footer p {
 
 /* ---------- Small screens ---------- */
 @media (max-width: 720px) {
-  .listen-now { font-size: 1rem; padding: 0.35rem 1.2rem; }
+  .logo { font-size: 1.7rem; }
+  nav { gap: 1rem; }
+  .listen-now { font-size: 1rem; padding: 0.35rem 1.1rem; white-space: nowrap; }
+  .request { max-width: 6.5em; font-size: 0.95rem; line-height: 1.15; text-align: right; }
 
   .hero-copy { padding: 1.75rem 1.25rem 2.5rem; }
 
