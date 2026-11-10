@@ -89,10 +89,11 @@ export default function Episodes({ episodes }: { episodes: Episode[] }) {
     if (open) dialog.current?.showModal();
   }, [open]);
 
-  const q = query.trim().toLowerCase();
-  const list = sorted.filter(
-    (ep) => !q || `${ep.num} ${ep.title} ${ep.guest ?? ""} ${ep.description}`.toLowerCase().includes(q),
-  );
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const list = sorted.filter((ep) => {
+    const text = `${ep.num} ${ep.title} ${ep.guest ?? ""} ${ep.description}`.toLowerCase();
+    return words.every((w) => text.includes(w));
+  });
   return (
     <>
       <section className="latest" id="latest">
