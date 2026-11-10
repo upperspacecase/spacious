@@ -69,7 +69,7 @@ nav a:hover { color: var(--ink); }
 }
 
 .hero .wordmark {
-  width: min(34rem, 86vw);
+  width: min(22rem, 80vw, 36svh);
   height: auto;
   mix-blend-mode: multiply;
 }

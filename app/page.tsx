@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { getEpisodes } from "@/lib/riverside";
 import Episodes from "./Episodes";
-import PitchForm from "./PitchForm";
+// import PitchForm from "./PitchForm";
 
 export default async function Home() {
   const episodes = await getEpisodes();
@@ -11,41 +11,26 @@ export default async function Home() {
       <header>
         <a className="logo" href="#top">Spacious</a>
         <nav>
-          <a href="#about">about</a>
           <a href="#episodes">episodes</a>
-          <a href="#pitch">bring a conversation</a>
+          {/* <a href="#pitch">bring a conversation</a> */}
         </nav>
       </header>
 
       <div className="hero" id="top">
         <Image
           className="wordmark"
-          src="/spacious-wordmark.png"
-          width={1536}
-          height={1024}
+          src="/spacious-hero.png"
+          width={718}
+          height={1540}
           priority
-          sizes="(max-width: 640px) 86vw, 34rem"
-          alt="Spacious — handwritten in blue ink, underlined, with a loose line descending into the empty page"
+          sizes="(max-width: 640px) 80vw, 22rem"
+          alt="Spacious — handwritten in blue ink over a blue sky, with a line curving down to a lone tree in a wide green field"
         />
-        <p className="tagline">an audio home for conversations that need room</p>
-        <p className="host">hosted by Grace</p>
+        <p className="tagline">
+          Wide ranging conversations about the human experience, how to navigate the world we live in
+          and the one we are building.
+        </p>
       </div>
-
-      <section className="manifesto" id="about">
-        <span className="kicker">what this is</span>
-        <p>
-          <span className="ink">Spacious</span> is an audio home for conversations that need room.
-        </p>
-        <p>
-          Some are about something a person knows. Some are hard. Some are spicy. Some may eventually
-          be deleted. They can be brief or sprawling, named or anonymous &mdash; carefully made, but
-          never performed for a camera.
-        </p>
-        <p>
-          Hosted by Grace, Spacious follows <span className="ink">better questions</span> wherever they
-          lead.
-        </p>
-      </section>
 
       <div className="descent" aria-hidden="true">
         <svg width="120" height="220" viewBox="0 0 120 220">
@@ -55,6 +40,7 @@ export default async function Home() {
 
       <Episodes episodes={episodes} />
 
+      {/*
       <section className="pitch" id="pitch">
         <span className="kicker">bring a conversation</span>
         <h2>
@@ -67,6 +53,7 @@ export default async function Home() {
         </p>
         <PitchForm />
       </section>
+      */}
 
       <footer>
         <div className="line"></div>
