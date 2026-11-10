@@ -58,20 +58,28 @@ nav a {
 nav a:hover { color: var(--ink); }
 
 /* ---------- Hero ---------- */
-.hero {
-  min-height: 100svh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-  padding: 7rem 1.5rem 4rem;
+/* The image is 718x1540: its height is 214.5vw and the horizon sits at 41%
+   of it (88vw). On wide screens it shifts up so the horizon lands at 85svh. */
+.backdrop {
+  position: absolute;
+  top: min(0px, calc(85svh - 88vw));
+  left: 0;
+  width: 100%;
+  height: auto;
+  z-index: -1;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(to bottom, #000 85%, transparent);
+  mask-image: linear-gradient(to bottom, #000 85%, transparent);
 }
 
-.hero .wordmark {
-  width: min(22rem, 80vw, 36svh);
-  height: auto;
-  mix-blend-mode: multiply;
+.hero {
+  min-height: calc(max(85svh, 88vw) + 10rem);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  text-align: center;
+  padding: 7rem 1.5rem 3rem;
 }
 
 .hero .tagline {

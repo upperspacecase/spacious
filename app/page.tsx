@@ -16,16 +16,17 @@ export default async function Home() {
         </nav>
       </header>
 
+      <Image
+        className="backdrop"
+        src="/spacious-hero.png"
+        width={718}
+        height={1540}
+        priority
+        sizes="100vw"
+        alt="Spacious — handwritten in blue ink over a blue sky, with a line curving down to a lone tree in a wide green field"
+      />
+
       <div className="hero" id="top">
-        <Image
-          className="wordmark"
-          src="/spacious-hero.png"
-          width={718}
-          height={1540}
-          priority
-          sizes="(max-width: 640px) 80vw, 22rem"
-          alt="Spacious — handwritten in blue ink over a blue sky, with a line curving down to a lone tree in a wide green field"
-        />
         <p className="tagline">
           Wide ranging conversations about the human experience, how to navigate the world we live in
           and the one we are building.
