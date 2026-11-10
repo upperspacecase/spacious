@@ -11,32 +11,36 @@ export default async function Home() {
       <header>
         <a className="logo" href="#top">Spacious</a>
         <nav>
-          <a href="#episodes">episodes</a>
+          <a className="nav-link" href="#episodes">Episodes</a>
+          <a className="nav-link" href="#about">About</a>
           {/* <a href="#pitch">bring a conversation</a> */}
+          <a
+            className="listen-now"
+            href="https://podcasts.apple.com/us/podcast/spacious/id6833112785"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Listen now
+          </a>
         </nav>
       </header>
 
-      <Image
-        className="backdrop"
-        src="/spacious-hero.png"
-        width={718}
-        height={1540}
-        priority
-        sizes="100vw"
-        alt="Spacious — handwritten in blue ink over a blue sky, with a line curving down to a lone tree in a wide green field"
-      />
-
       <div className="hero" id="top">
-        <p className="tagline">
-          Wide ranging conversations about the human experience, how to navigate the world we live in
-          and the one we are building.
-        </p>
-      </div>
-
-      <div className="descent" aria-hidden="true">
-        <svg width="120" height="220" viewBox="0 0 120 220">
-          <path d="M112 8 C60 14, 20 22, 52 34 C84 46, 70 62, 62 84 C54 106, 66 122, 60 148 C56 166, 62 176, 58 192 M42 178 C40 196, 52 206, 66 192" />
-        </svg>
+        <Image
+          src="/spacious-hero.png"
+          width={1536}
+          height={1024}
+          priority
+          sizes="100vw"
+          alt="Spacious — handwritten in cream over a dusk sky, with a line curving down to a lone oak in a wide field"
+        />
+        <div className="hero-copy" id="about">
+          <p className="tagline">
+            Wide ranging conversations about the human experience, how to navigate the world we live in
+            and the one we are building.
+          </p>
+          <a className="cta" href="#latest">Listen to the latest</a>
+        </div>
       </div>
 
       <Episodes episodes={episodes} />
@@ -57,9 +61,10 @@ export default async function Home() {
       */}
 
       <footer>
-        <div className="line"></div>
-        <p>Spacious &copy; 2026 &mdash; a quest for better questions</p>
-        <span className="hand">the negative space is not unfinished.</span>
+        <svg className="squiggle" width="170" height="30" viewBox="0 0 170 30" aria-hidden="true">
+          <path d="M3 26 C30 12, 62 2, 82 10 C92 14, 86 20, 98 16 C110 12, 118 8, 130 12 C140 15, 150 16, 167 13" />
+        </svg>
+        <p>Space to listen. Room to think.</p>
       </footer>
     </>
   );

@@ -15,9 +15,9 @@ const caveat = Caveat({
 });
 
 export const metadata: Metadata = {
-  title: "Spacious — an audio home for conversations that need room",
+  title: "Spacious",
   description:
-    "Spacious is an audio home for conversations that need room. Some are about something a person knows. Some are hard. Some are spicy. Some may eventually be deleted. Hosted by Grace.",
+    "Wide ranging conversations about the human experience, how to navigate the world we live in and the one we are building.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

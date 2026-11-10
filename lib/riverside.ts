@@ -10,18 +10,19 @@ export type Theme = (typeof THEMES)[number];
 export type Episode = {
   num: string;
   title: string;
+  guest: string | null;
   theme: Theme;
   date: string;
   blurb: string;
   audioUrl: string | null;
-  duration: string | null;
+  seconds: number | null;
 };
 
 const PLACEHOLDERS: Episode[] = [
-  { num: "001", title: "Spacious 001", theme: "Teach Me Something", date: "2026-09-04", blurb: "coming soon", audioUrl: null, duration: null },
-  { num: "002", title: "Spacious 002", theme: "Teach Me Something Hard", date: "2026-09-18", blurb: "coming soon", audioUrl: null, duration: null },
-  { num: "003", title: "Spacious 003", theme: "Teach Me Something Spicy", date: "2026-10-02", blurb: "coming soon", audioUrl: null, duration: null },
-  { num: "004", title: "Spacious 004", theme: "We'll Delete This", date: "2026-10-16", blurb: "coming soon", audioUrl: null, duration: null },
+  { num: "0001", title: "Coming soon", guest: null, theme: "Teach Me Something", date: "2026-09-04", blurb: "", audioUrl: null, seconds: null },
+  { num: "0002", title: "Coming soon", guest: null, theme: "Teach Me Something Hard", date: "2026-09-18", blurb: "", audioUrl: null, seconds: null },
+  { num: "0003", title: "Coming soon", guest: null, theme: "Teach Me Something Spicy", date: "2026-10-02", blurb: "", audioUrl: null, seconds: null },
+  { num: "0004", title: "Coming soon", guest: null, theme: "We'll Delete This", date: "2026-10-16", blurb: "", audioUrl: null, seconds: null },
 ];
 
 function tag(xml: string, name: string): string | null {
@@ -45,18 +46,28 @@ function attr(xml: string, name: string, attribute: string): string | null {
   return m ? decode(m[1]) : null;
 }
 
+// itunes:summary arrives entity-escaped, so decode before stripping tags.
 function stripHtml(s: string): string {
-  return decode(s.replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
+  return decode(decode(s).replace(/<[^>]+>/g, " ")).replace(/\s+/g, " ").trim();
 }
 
-function formatDuration(raw: string | null): string | null {
+function toSeconds(raw: string | null): number | null {
   if (!raw) return null;
-  const secs = /^\d+$/.test(raw)
+  return /^\d+$/.test(raw)
     ? parseInt(raw, 10)
     : raw.split(":").reduce((acc, part) => acc * 60 + parseInt(part, 10), 0);
+}
+
+export function formatDuration(secs: number): string {
   const h = Math.floor(secs / 3600);
   const m = Math.floor((secs % 3600) / 60);
   return h ? `${h}h ${m}m` : `${m} min`;
+}
+
+// Riverside titles look like "Spacious 0001 with Erica Bonham: A Joyful Disruption".
+function splitTitle(raw: string): { title: string; guest: string | null } {
+  const m = raw.match(/^Spacious\s+\d+\s+with\s+(.+?):\s*(.+)$/i);
+  return m ? { title: m[2].trim(), guest: m[1].trim() } : { title: raw, guest: null };
 }
 
 function themeFor(text: string): Theme {
@@ -75,19 +86,19 @@ export function parseFeed(xml: string): Episode[] {
   const items = xml.match(/<item(?:\s[^>]*)?>[\s\S]*?<\/item>/g) ?? [];
   const total = items.length;
   return items.map((item, i) => {
-    const title = decode(tag(item, "title") ?? "Untitled");
-    const description = tag(item, "itunes:summary") ?? tag(item, "description") ?? "";
+    const rawTitle = decode(tag(item, "title") ?? "Untitled");
+    const description = stripHtml(tag(item, "itunes:summary") ?? tag(item, "description") ?? "");
     const keywords = tag(item, "itunes:keywords") ?? "";
     const episodeNumber = tag(item, "itunes:episode");
-    const num = String(episodeNumber ?? total - i).padStart(3, "0");
+    const num = String(episodeNumber ?? total - i).padStart(4, "0");
     return {
       num,
-      title,
-      theme: themeFor(`${title} ${keywords}`),
+      ...splitTitle(rawTitle),
+      theme: themeFor(`${rawTitle} ${keywords}`),
       date: toIsoDate(tag(item, "pubDate") ?? ""),
-      blurb: stripHtml(description).slice(0, 220),
+      blurb: description.length > 220 ? description.slice(0, 220).replace(/\s+\S*$/, "") + "…" : description,
       audioUrl: attr(item, "enclosure", "url"),
-      duration: formatDuration(tag(item, "itunes:duration")),
+      seconds: toSeconds(tag(item, "itunes:duration")),
     };
   });
 }
