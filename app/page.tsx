@@ -1,4 +1,5 @@
 import Image from "next/image";
+import hero from "@/public/spacious-hero.png";
 import { getEpisodes } from "@/lib/riverside";
 import Episodes from "./Episodes";
 // import PitchForm from "./PitchForm";
@@ -26,14 +27,16 @@ export default async function Home() {
       </header>
 
       <div className="hero" id="top">
-        <Image
-          src="/spacious-hero.png"
-          width={1536}
-          height={1024}
-          priority
-          sizes="100vw"
-          alt="Spacious — handwritten in cream over a dusk sky, with a line curving down to a lone oak in a wide field"
-        />
+        <div className="hero-frame">
+          <Image
+            src={hero}
+            alt="Handwritten Spacious in the sky above a lone oak in a golden-hour meadow, with a line curving down to the tree"
+            fill
+            preload
+            sizes="100vw"
+            className="hero-img"
+          />
+        </div>
         <div className="hero-copy" id="about">
           <p className="tagline">
             Wide ranging conversations about the human experience, how to navigate the world we live in

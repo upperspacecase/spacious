@@ -11,6 +11,7 @@ function formatDate(iso: string) {
 }
 
 function clock(secs: number) {
+  if (!Number.isFinite(secs) || secs < 0) return "0:00";
   const s = Math.floor(secs);
   const h = Math.floor(s / 3600);
   const m = Math.floor((s % 3600) / 60);
@@ -22,54 +23,61 @@ function meta(ep: Episode) {
   return `EP ${ep.num} · ${formatDate(ep.date)}${ep.seconds ? ` · ${formatDuration(ep.seconds)}` : ""}`;
 }
 
-function Player({ src, seconds, autoPlay }: { src: string; seconds: number | null; autoPlay: boolean }) {
-  const audio = useRef<HTMLAudioElement>(null);
-  const [playing, setPlaying] = useState(false);
-  const [time, setTime] = useState(0);
-  const [total, setTotal] = useState(seconds ?? 0);
+function Mark({ playing }: { playing: boolean }) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      {playing ? <path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" /> : <path d="M8 5.5v13l10.5-6.5z" />}
+    </svg>
+  );
+}
 
-  useEffect(() => {
-    if (autoPlay) audio.current?.play();
-  }, [autoPlay]);
-
-  function toggle() {
-    if (!audio.current) return;
-    if (audio.current.paused) audio.current.play();
-    else audio.current.pause();
-  }
+function Player({
+  episode,
+  active,
+  playing,
+  time,
+  total,
+  onToggle,
+  onSeek,
+}: {
+  episode: Episode;
+  active: boolean;
+  playing: boolean;
+  time: number;
+  total: number;
+  onToggle: (ep: Episode) => void;
+  onSeek: (ep: Episode, value: number) => void;
+}) {
+  const shownTime = active ? time : 0;
+  const shownTotal = active && total ? total : (episode.seconds ?? 0);
+  const isPlaying = active && playing;
+  const progress = shownTotal ? (shownTime / shownTotal) * 100 : 0;
 
   return (
     <div className="player">
-      <audio
-        ref={audio}
-        src={src}
-        preload="none"
-        onPlay={() => setPlaying(true)}
-        onPause={() => setPlaying(false)}
-        onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
-        onLoadedMetadata={(e) => setTotal(e.currentTarget.duration)}
-      />
-      <button type="button" className="toggle" onClick={toggle} aria-label={playing ? "Pause" : "Play"}>
-        <svg viewBox="0 0 24 24" aria-hidden="true">
-          {playing ? <path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z" /> : <path d="M8 5.5v13l10.5-6.5z" />}
-        </svg>
+      <button
+        type="button"
+        className="toggle"
+        onClick={() => onToggle(episode)}
+        aria-label={isPlaying ? `Pause ${episode.title}` : `Play ${episode.title}`}
+        aria-pressed={isPlaying}
+        disabled={!episode.audioUrl}
+      >
+        <Mark playing={isPlaying} />
       </button>
-      <span className="time">{clock(time)}</span>
+      <span className="time elapsed">{clock(shownTime)}</span>
       <input
         type="range"
         min={0}
-        max={total || 1}
+        max={shownTotal || 1}
         step={1}
-        value={time}
-        aria-label="Seek"
-        style={{ "--progress": `${total ? (time / total) * 100 : 0}%` } as CSSProperties}
-        onChange={(e) => {
-          if (!audio.current) return;
-          audio.current.currentTime = Number(e.target.value);
-          setTime(Number(e.target.value));
-        }}
+        value={Math.min(shownTime, shownTotal || 1)}
+        aria-label={`Seek within ${episode.title}`}
+        disabled={!episode.audioUrl}
+        style={{ "--progress": `${progress}%` } as CSSProperties}
+        onChange={(e) => onSeek(episode, Number(e.target.value))}
       />
-      <span className="time">{clock(total)}</span>
+      <span className="time duration">{clock(shownTotal)}</span>
     </div>
   );
 }
@@ -81,38 +89,115 @@ const ICON_SPOTIFY =
 
 export default function Episodes({ episodes }: { episodes: Episode[] }) {
   const sorted = [...episodes].sort((a, b) => b.date.localeCompare(a.date));
-  const [current, setCurrent] = useState<Episode>(sorted[0]);
-  const [autoPlay, setAutoPlay] = useState(false);
+  const [track, setTrack] = useState<Episode>(sorted[0]);
+  const [playing, setPlaying] = useState(false);
+  const [engaged, setEngaged] = useState(false);
+  const [time, setTime] = useState(0);
+  const [total, setTotal] = useState(sorted[0]?.seconds ?? 0);
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState<Episode | null>(null);
+  const [playerInView, setPlayerInView] = useState(true);
   const dialog = useRef<HTMLDialogElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const trackRef = useRef(track);
+  const playerSlot = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (open) dialog.current?.showModal();
   }, [open]);
 
+  useEffect(() => {
+    const el = playerSlot.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setPlayerInView(entry.isIntersecting),
+      { threshold: 0.25, rootMargin: "-80px 0px 0px 0px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const showBar = engaged && !playerInView && !open && !!track.audioUrl;
+
+  useEffect(() => {
+    document.body.classList.toggle("has-player-bar", showBar);
+    return () => document.body.classList.remove("has-player-bar");
+  }, [showBar]);
+
+  function activate(ep: Episode) {
+    const audio = audioRef.current;
+    if (!audio || !ep.audioUrl) return null;
+    if (trackRef.current.num !== ep.num || audio.getAttribute("src") !== ep.audioUrl) {
+      trackRef.current = ep;
+      setTrack(ep);
+      setTime(0);
+      setTotal(ep.seconds ?? 0);
+      audio.src = ep.audioUrl;
+    }
+    return audio;
+  }
+
+  function toggle(ep: Episode) {
+    const audio = activate(ep);
+    if (!audio) return;
+    if (!audio.paused && audio.getAttribute("src") === ep.audioUrl) {
+      audio.pause();
+      return;
+    }
+    setEngaged(true);
+    void audio.play().catch(() => setPlaying(false));
+  }
+
+  function seek(ep: Episode, value: number) {
+    const audio = activate(ep);
+    if (!audio) return;
+    const apply = () => {
+      audio.currentTime = value;
+      setTime(value);
+    };
+    if (audio.readyState >= 1) apply();
+    else audio.addEventListener("loadedmetadata", apply, { once: true });
+  }
+
   const q = query.trim().toLowerCase();
   const list = sorted.filter(
     (ep) => !q || `${ep.num} ${ep.title} ${ep.guest ?? ""} ${ep.description}`.toLowerCase().includes(q),
   );
-  const isLatest = current.num === sorted[0].num;
-
-  function play(ep: Episode) {
-    setCurrent(ep);
-    setAutoPlay(true);
-    document.getElementById("latest")?.scrollIntoView({ behavior: "smooth" });
-  }
+  const isLatest = track.num === sorted[0]?.num;
 
   return (
     <>
+      <audio
+        ref={audioRef}
+        preload="none"
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onEnded={() => setPlaying(false)}
+        onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
+        onLoadedMetadata={(e) => {
+          const duration = e.currentTarget.duration;
+          if (Number.isFinite(duration)) setTotal(duration);
+        }}
+      />
+
       <section className="latest" id="latest">
         <span className="eyebrow">{isLatest ? "Latest episode" : "Now playing"}</span>
-        <h2>{current.title}</h2>
-        {current.guest && <p className="guest">with {current.guest}</p>}
-        <p className="meta">{meta(current)}</p>
-        {current.audioUrl && (
-          <Player key={current.num} src={current.audioUrl} seconds={current.seconds} autoPlay={autoPlay} />
-        )}
+        <h2>{track.title}</h2>
+        {track.guest && <p className="guest">with {track.guest}</p>}
+        <p className="meta">{meta(track)}</p>
+        <div ref={playerSlot}>
+          {track.audioUrl && (
+            <Player
+              episode={track}
+              active
+              playing={playing}
+              time={time}
+              total={total}
+              onToggle={toggle}
+              onSeek={seek}
+            />
+          )}
+        </div>
       </section>
 
       <section className="find" id="episodes">
@@ -142,51 +227,73 @@ export default function Episodes({ episodes }: { episodes: Episode[] }) {
             <p className="empty">Nothing matches that yet.</p>
           ) : (
             <ul className="ep-list">
-              {list.map((ep) => (
-                <li key={ep.num} onClick={() => ep.descriptionHtml && setOpen(ep)}>
-                  <button
-                    type="button"
-                    className="play"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      play(ep);
-                    }}
-                    disabled={!ep.audioUrl}
-                    aria-label={`Play ${ep.title}`}
-                  >
-                    <svg viewBox="0 0 24 24" aria-hidden="true">
-                      <path d="M9 7.5v9l7.5-4.5z" />
-                    </svg>
-                  </button>
-                  <span className="num">{ep.num}</span>
-                  <span className="title">
-                    <button type="button" onClick={() => setOpen(ep)} disabled={!ep.descriptionHtml}>
-                      {ep.title}
+              {list.map((ep) => {
+                const isPlaying = playing && track.num === ep.num;
+                return (
+                  <li key={ep.num} onClick={() => ep.descriptionHtml && setOpen(ep)}>
+                    <button
+                      type="button"
+                      className="play"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggle(ep);
+                      }}
+                      disabled={!ep.audioUrl}
+                      aria-label={isPlaying ? `Pause ${ep.title}` : `Play ${ep.title}`}
+                      aria-pressed={isPlaying}
+                    >
+                      <svg viewBox="0 0 24 24" aria-hidden="true">
+                        {isPlaying ? (
+                          <path d="M8 6h2.6v12H8zM13.4 6H16v12h-2.6z" />
+                        ) : (
+                          <path d="M9 7.5v9l7.5-4.5z" />
+                        )}
+                      </svg>
                     </button>
-                  </span>
-                  <span className="guest">
-                    {ep.guest}
-                    {ep.contact && (
-                      <a
-                        className="contact"
-                        href={ep.contact.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        {ep.contact.label}
-                      </a>
-                    )}
-                  </span>
-                  <span className="length">{ep.seconds ? formatDuration(ep.seconds) : ""}</span>
-                </li>
-              ))}
+                    <span className="num">{ep.num}</span>
+                    <span className="title">
+                      <button type="button" onClick={() => setOpen(ep)} disabled={!ep.descriptionHtml}>
+                        {ep.title}
+                      </button>
+                    </span>
+                    <span className="guest">
+                      {ep.guest}
+                      {ep.contact && (
+                        <a
+                          className="contact"
+                          href={ep.contact.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {ep.contact.label}
+                        </a>
+                      )}
+                    </span>
+                    <span className="length">{ep.seconds ? formatDuration(ep.seconds) : ""}</span>
+                    <span className="row-meta">
+                      <span>{ep.num}</span>
+                      {ep.seconds ? (
+                        <>
+                          <span aria-hidden="true">·</span>
+                          <span>{formatDuration(ep.seconds)}</span>
+                        </>
+                      ) : null}
+                    </span>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
       </section>
 
-      <dialog ref={dialog} className="notes" onClose={() => setOpen(null)} onClick={(e) => e.target === e.currentTarget && dialog.current?.close()}>
+      <dialog
+        ref={dialog}
+        className="notes"
+        onClose={() => setOpen(null)}
+        onClick={(e) => e.target === e.currentTarget && dialog.current?.close()}
+      >
         {open && (
           <div className="notes-inner">
             <button type="button" className="close" onClick={() => dialog.current?.close()} aria-label="Close">
@@ -197,10 +304,40 @@ export default function Episodes({ episodes }: { episodes: Episode[] }) {
             <h3>{open.title}</h3>
             {open.guest && <p className="guest">with {open.guest}</p>}
             <p className="meta">{meta(open)}</p>
+            {open.audioUrl && (
+              <Player
+                episode={open}
+                active={track.num === open.num}
+                playing={playing}
+                time={time}
+                total={total}
+                onToggle={toggle}
+                onSeek={seek}
+              />
+            )}
             <div className="notes-body" dangerouslySetInnerHTML={{ __html: open.descriptionHtml }} />
           </div>
         )}
       </dialog>
+
+      {showBar && (
+        <div className="now-bar" role="region" aria-label="Now playing">
+          <button
+            type="button"
+            className="toggle"
+            onClick={() => toggle(track)}
+            aria-label={playing ? `Pause ${track.title}` : `Play ${track.title}`}
+            aria-pressed={playing}
+          >
+            <Mark playing={playing} />
+          </button>
+          <span className="now-title">{track.title}</span>
+          <span className="now-time">
+            <span className="elapsed">{clock(time)}</span>
+            <span className="total"> / {clock(total || track.seconds || 0)}</span>
+          </span>
+        </div>
+      )}
     </>
   );
 }
