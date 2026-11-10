@@ -58,8 +58,57 @@ const ALLOWED_TAGS = new Set(["p", "br", "ul", "ol", "li", "b", "strong", "em", 
 
 // Show notes are rendered as HTML in the episode modal, so keep only basic
 // formatting tags and http(s) links, and drop every other tag and attribute.
+function escapeText(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// Raw URLs in the show notes wrap to two lines on a phone. Keep the href and
+// show a short label instead: a hostname, or the network name for a profile.
+function linkLabel(href: string): string {
+  try {
+    const url = new URL(href);
+    const host = url.hostname.replace(/^www\./, "");
+    const path = url.pathname.replace(/\/$/, "");
+    const segments = path.split("/").filter(Boolean);
+    const social: Record<string, string> = {
+      "instagram.com": "Instagram",
+      "facebook.com": "Facebook",
+      "tiktok.com": "TikTok",
+      "youtube.com": "YouTube",
+      "youtu.be": "YouTube",
+      "linkedin.com": "LinkedIn",
+      "x.com": "X",
+      "twitter.com": "X",
+    };
+    if (social[host] && segments.length <= 1) return social[host];
+    return host + path;
+  } catch {
+    return href;
+  }
+}
+
+function shortenLinks(html: string): string {
+  const labelled = html.replace(
+    /<a href="(https?:\/\/[^"]*)"([^>]*)>([\s\S]*?)<\/a>/gi,
+    (match, href: string, attrs: string, text: string) => {
+      const visible = decode(text.replace(/<[^>]+>/g, "")).trim();
+      if (!/^https?:\/\//i.test(visible)) return match;
+      return `<a href="${href}"${attrs}>${escapeText(linkLabel(href))}</a>`;
+    },
+  );
+  // "Instagram: Instagram" is the same word twice once the URL is labelled.
+  return labelled.replace(/<li>([\s\S]*?)<\/li>/gi, (full, inner: string) => {
+    const m = inner.match(/^([^<]*):\s*(<a\b[^>]*>)([\s\S]*?)(<\/a>[\s\S]*)$/i);
+    if (!m) return full;
+    const prefix = decode(m[1]).replace(/\u00a0/g, " ").trim();
+    const label = decode(m[3].replace(/<[^>]+>/g, "")).trim();
+    if (!prefix || prefix.toLowerCase() !== label.toLowerCase()) return full;
+    return `<li>${m[2]}${m[3]}${m[4]}</li>`;
+  });
+}
+
 function sanitizeHtml(html: string): string {
-  return html
+  const clean = html
     .replace(/<(script|style|iframe)[\s\S]*?<\/\1>/gi, "")
     .replace(/<(\/?)([a-z0-9]+)([^>]*)>/gi, (_, slash: string, name: string, rest: string) => {
       const t = name.toLowerCase();
@@ -69,7 +118,9 @@ function sanitizeHtml(html: string): string {
         return href ? `<a href="${href}" target="_blank" rel="noopener noreferrer">` : "<a>";
       }
       return ALLOWED_TAGS.has(t) ? `<${slash}${t}>` : "";
-    });
+    })
+    .replace(/(?:<br\s*\/?\s*>\s*)+(<\/(?:li|p)>)/gi, "$1");
+  return shortenLinks(clean);
 }
 
 // Show notes list the guest's links under a "Find Erica:" heading; take the first one.
