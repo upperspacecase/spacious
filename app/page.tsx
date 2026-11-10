@@ -30,7 +30,7 @@ export default async function Home() {
           height={1024}
           priority
           sizes="100vw"
-          alt="Spacious — handwritten in cream over a dusk sky, with a line curving down to a lone oak in a wide field"
+          alt="Spacious — handwritten in blue ink over a clear sky, with a line curving down to a lone oak in a wide meadow"
         />
         <div className="hero-copy">
           <p className="tagline">
