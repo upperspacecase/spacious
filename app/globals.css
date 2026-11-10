@@ -238,8 +238,7 @@ nav { display: flex; align-items: center; gap: 2.5rem; }
 
 .listen { display: flex; flex-wrap: wrap; gap: 0.75rem; }
 
-.listen a,
-.listen .soon {
+.listen a {
   display: inline-flex;
   align-items: center;
   gap: 0.6rem;
@@ -257,9 +256,6 @@ nav { display: flex; align-items: center; gap: 2.5rem; }
 .listen svg { width: 1.7rem; height: 1.7rem; flex: none; }
 .listen .apple { fill: #a24fd8; }
 .listen .spotify { fill: #1ed760; }
-
-.listen .soon { opacity: 0.7; cursor: default; }
-.listen .soon em { font-weight: 400; font-size: 0.95rem; }
 
 .find .search {
   display: block;

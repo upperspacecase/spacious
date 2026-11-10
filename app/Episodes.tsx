@@ -111,10 +111,10 @@ export default function Episodes({ episodes }: { episodes: Episode[] }) {
                 <svg className="apple" viewBox="0 0 24 24" aria-hidden="true"><path d={ICON_APPLE} /></svg>
                 Apple Podcasts
               </a>
-              <span className="soon" aria-disabled="true">
+              <a href="https://open.spotify.com/show/4JAo9q3TN6QHYkwminF8D8" target="_blank" rel="noopener noreferrer">
                 <svg className="spotify" viewBox="0 0 24 24" aria-hidden="true"><path d={ICON_SPOTIFY} /></svg>
-                Spotify <em>soon</em>
-              </span>
+                Spotify
+              </a>
             </div>
           </div>
           <input
