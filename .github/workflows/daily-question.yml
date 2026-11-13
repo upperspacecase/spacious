@@ -1,0 +1,27 @@
+name: Daily question
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency: questions
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: node scripts/reel/reels.mjs post
+        env:
+          BUFFER_API_KEY: ${{ secrets.BUFFER_API_KEY }}
+          BUFFER_CHANNEL_ID: ${{ vars.BUFFER_CHANNEL_ID }}
+      - name: Record the posted question
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add questions.txt questions-posted.txt
+          git commit -m "Post daily question"
+          git pull --rebase
+          git push

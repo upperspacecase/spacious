@@ -1,0 +1,29 @@
+name: Render question reels
+
+on:
+  push:
+    branches: [main]
+    paths: [questions.txt]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency: questions
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y ffmpeg imagemagick
+      - run: node scripts/reel/reels.mjs render
+      - name: Commit new reels
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/reels
+          git diff --cached --quiet && exit 0
+          git commit -m "Render question reels"
+          git pull --rebase
+          git push
