@@ -1,25 +1,46 @@
 // Daily Instagram question reels.
-//   node scripts/reel/reels.mjs render   renders a reel for each question in questions.txt
-//   node scripts/reel/reels.mjs post     hands the first question's reel to Buffer
-// questions.txt holds one question per line, posted top to bottom.
+//   node scripts/reel/reels.mjs render   renders a reel for each unposted question
+//   node scripts/reel/reels.mjs post     hands the next question's reel to Buffer
+// Questions live in the Notion database "Spacious questions". A row with no
+// Posted date is waiting; they post in order of the No column.
 
 import { execFileSync } from "node:child_process";
-import { appendFileSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const SITE = "https://spacious.live";
-const QUEUE = "questions.txt";
-const POSTED = "questions-posted.txt";
+const NOTION_DATABASE = "41842ee2443b8102b2ccefbbba01b555";
 const OUT = "public/reels";
 const FONT = "scripts/reel/Newsreader.ttf";
 const SECONDS = "7";
 
-const questions = () =>
-  readFileSync(QUEUE, "utf8")
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
+async function notion(method, path, body) {
+  const res = await fetch(`https://api.notion.com/v1/${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${process.env.NOTION_TOKEN}`,
+      "Notion-Version": "2022-06-28",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Notion ${method} ${path} returned ${res.status}: ${await res.text()}`);
+  return res.json();
+}
+
+async function questions() {
+  const { results } = await notion("POST", `databases/${NOTION_DATABASE}/query`, {
+    filter: { property: "Posted", date: { is_empty: true } },
+    sorts: [{ property: "No", direction: "ascending" }],
+  });
+  return results
+    .map((page) => ({
+      id: page.id,
+      text: page.properties.Question.title.map((part) => part.plain_text).join("").trim(),
+    }))
+    .filter((question) => question.text);
+}
 
 const slug = (question) =>
   question
@@ -58,12 +79,12 @@ function renderReel(question, file) {
   ]);
 }
 
-function render() {
+async function render() {
   mkdirSync(OUT, { recursive: true });
-  for (const question of questions()) {
-    const file = join(OUT, `${slug(question)}.mp4`);
+  for (const { text } of await questions()) {
+    const file = join(OUT, `${slug(text)}.mp4`);
     if (existsSync(file)) continue;
-    renderReel(question, file);
+    renderReel(text, file);
     console.log(`rendered ${file}`);
   }
 }
@@ -77,42 +98,70 @@ mutation CreatePost($input: CreatePostInput!) {
   }
 }`;
 
+const nextDay = (day) => new Date(Date.parse(day) + 86_400_000).toISOString().slice(0, 10);
+
+// Schedules every waiting question, one per day, after the last day already
+// taken. Buffer caps how many posts can be scheduled at once, so each run
+// tops the schedule up as far as Buffer allows.
 async function post() {
-  const [question, ...rest] = questions();
-  if (!question) throw new Error(`${QUEUE} is empty: nothing to post today`);
-
-  const url = `${SITE}/reels/${slug(question)}.mp4`;
-  const reel = await fetch(url, { method: "HEAD" });
-  if (!reel.ok) throw new Error(`Reel not live yet: ${url} returned ${reel.status}`);
-
-  const res = await fetch("https://api.buffer.com", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${process.env.BUFFER_API_KEY}`,
-    },
-    body: JSON.stringify({
-      query: CREATE_POST,
-      variables: {
-        input: {
-          channelId: process.env.BUFFER_CHANNEL_ID,
-          schedulingType: "automatic",
-          mode: "customScheduled",
-          dueAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
-          text: `${question}\n\nSpace to listen. Room to think.\nspacious.live`,
-          metadata: { instagram: { type: "reel", shouldShareToFeed: true } },
-          assets: [{ video: { url, metadata: { title: question } } }],
-        },
-      },
-    }),
+  const waiting = await questions();
+  const { results: [latest] } = await notion("POST", `databases/${NOTION_DATABASE}/query`, {
+    filter: { property: "Posted", date: { is_not_empty: true } },
+    sorts: [{ property: "Posted", direction: "descending" }],
+    page_size: 1,
   });
-  const body = await res.json();
-  const result = body.data?.createPost;
-  if (!result?.post) throw new Error(`Buffer did not accept the post: ${JSON.stringify(body)}`);
+  const today = new Date().toISOString().slice(0, 10);
+  const lastDay = latest?.properties.Posted.date.start.slice(0, 10);
+  if (!waiting.length) {
+    if (!lastDay || lastDay < today) throw new Error("No questions left in Notion: nothing to post today");
+    return;
+  }
 
-  writeFileSync(QUEUE, rest.map((line) => `${line}\n`).join(""));
-  appendFileSync(POSTED, `${new Date().toISOString().slice(0, 10)}\t${question}\n`);
-  console.log(`queued "${question}" as Buffer post ${result.post.id}, due ${result.post.dueAt}`);
+  let day = lastDay >= today ? nextDay(lastDay) : today;
+  for (const { id, text } of waiting) {
+    // A reel rendered in this run is only reachable once the site has redeployed.
+    const url = `${SITE}/reels/${slug(text)}.mp4`;
+    let live = false;
+    for (let attempt = 0; attempt < 40 && !live; attempt++) {
+      if (attempt) await new Promise((resolve) => setTimeout(resolve, 15_000));
+      live = (await fetch(url, { method: "HEAD" })).ok;
+    }
+    if (!live) throw new Error(`Reel never went live: ${url}`);
+
+    const soonest = Date.now() + 10 * 60 * 1000;
+    const res = await fetch("https://api.buffer.com", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.BUFFER_API_KEY}`,
+      },
+      body: JSON.stringify({
+        query: CREATE_POST,
+        variables: {
+          input: {
+            channelId: process.env.BUFFER_CHANNEL_ID,
+            schedulingType: "automatic",
+            mode: "customScheduled",
+            dueAt: new Date(Math.max(Date.parse(`${day}T15:10:00Z`), soonest)).toISOString(),
+            text: `${text}\n\nSpace to listen. Room to think.\nspacious.live`,
+            metadata: { instagram: { type: "reel", shouldShareToFeed: true } },
+            assets: [{ video: { url, metadata: { title: text } } }],
+          },
+        },
+      }),
+    });
+    const body = await res.json();
+    const result = body.data?.createPost;
+    if (result?.__typename === "LimitReachedError") {
+      console.log(`Buffer is full: ${result.message}`);
+      return;
+    }
+    if (!result?.post) throw new Error(`Buffer did not accept the post: ${JSON.stringify(body)}`);
+
+    await notion("PATCH", `pages/${id}`, { properties: { Posted: { date: { start: day } } } });
+    console.log(`scheduled "${text}" for ${day} as Buffer post ${result.post.id}`);
+    day = nextDay(day);
+  }
 }
 
 await { render, post }[process.argv[2]]();
